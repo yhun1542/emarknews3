@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>emarknews.com - 뉴스 피드</title>
+    <style>
+        body { background: #121212; color: #ffffff; font-family: Arial, sans-serif; }
+        .news-card { background: #1e1e1e; padding: 20px; margin: 10px; border-radius: 8px; }
+        .skeleton { background: linear-gradient(90deg, #2c2c2c 25%, #3c3c3c 50%, #2c2c2c 75%); animation: shimmer 1.5s infinite; }
+        @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+        .meta { font-size: 0.8em; color: #aaaaaa; }
+        .tags { display: inline; margin-left: 10px; }
+        .star { color: gold; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>emarknews.com</h1>
+        <button onclick="refresh()">새로고침</button>
+    </header>
+    <main id="news-feed">
+        <div class="news-card skeleton" style="height: 100px;"></div>
+    </main>
+    <script>
+        const API_URL = '/api/news';
+        async function fetchNews() {
+            try {
+                const response = await fetch(API_URL, { headers: { 'If-None-Match': localStorage.getItem('etag') } });
+                const etag = response.headers.get('ETag');
+                if (etag) localStorage.setItem('etag', etag);
+                if (response.status === 304) return;
+                const data = await response.json();
+                const feed = document.getElementById('news-feed');
+                feed.innerHTML = '';
+                data.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'news-card';
+                    div.innerHTML = `
+                        <h2>${item.title_en}</h2>
+                        <h3>${item.title_ko}</h3>
+                        <p>${item.summary} &middot;</p>
+                        <div class="meta">출처: ${item.source} | 발행: ${item.published} | 별점: <span class="star">${item.rating}</span> | 태그: <span class="tags">${item.tags.join(', ')}</span></div>
+                    `;
+                    feed.appendChild(div);
+                });
+            } catch (error) { console.error('Error:', error); }
+        }
+        function refresh() { fetchNews(); }
+        window.onload = fetchNews;
+    </script>
+</body>
+</html>
