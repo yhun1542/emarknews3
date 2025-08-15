@@ -37,10 +37,14 @@
                     const div = document.createElement('div');
                     div.className = 'news-card';
                     div.innerHTML = `
-                        <h2>${item.title_en}</h2>
-                        <h3>${item.title_ko}</h3>
-                        <p>${item.summary} &middot;</p>
-                        <div class="meta">출처: ${item.source} | 발행: ${item.published} | 별점: <span class="star">${item.rating}</span> | 태그: <span class="tags">${item.tags.join(', ')}</span></div>
+                        <h2>${item.title || '제목 없음'}</h2>
+                        <p>${item.description || '설명 없음'}</p>
+                        <div class="meta">
+                            출처: ${item.source || '알 수 없음'} | 
+                            발행: ${item.publishedAt ? new Date(item.publishedAt).toLocaleString('ko-KR') : '날짜 없음'}
+                            ${item.url ? ` | <a href="${item.url}" target="_blank">원문 보기</a>` : ''}
+                        </div>
+                        ${item.image ? `<img src="${item.image}" alt="뉴스 이미지" style="max-width: 100%; height: auto; margin-top: 10px;">` : ''}
                     `;
                     feed.appendChild(div);
                 });
