@@ -5,53 +5,341 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>emarknews.com - 뉴스 피드</title>
     <style>
-        body { background: #121212; color: #ffffff; font-family: Arial, sans-serif; }
-        .news-card { background: #1e1e1e; padding: 20px; margin: 10px; border-radius: 8px; }
-        .skeleton { background: linear-gradient(90deg, #2c2c2c 25%, #3c3c3c 50%, #2c2c2c 75%); animation: shimmer 1.5s infinite; }
-        @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
-        .meta { font-size: 0.8em; color: #aaaaaa; }
-        .tags { display: inline; margin-left: 10px; }
-        .star { color: gold; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+        }
+        
+        header {
+            background: #1e1e1e;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #333;
+        }
+        
+        header h1 {
+            color: #4CAF50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .refresh-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            background: #45a049;
+        }
+        
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .news-card {
+            background: #1e1e1e;
+            padding: 24px;
+            margin: 16px 0;
+            border-radius: 12px;
+            border: 1px solid #333;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .news-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.1);
+        }
+        
+        .news-card h2 {
+            color: #4CAF50;
+            font-size: 1.4em;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        
+        .news-card p {
+            color: #cccccc;
+            margin-bottom: 16px;
+            font-size: 1.1em;
+        }
+        
+        .meta {
+            font-size: 0.9em;
+            color: #aaaaaa;
+            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .meta a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        
+        .meta a:hover {
+            text-decoration: underline;
+        }
+        
+        .rating {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .star {
+            color: #FFD700;
+            font-size: 1.2em;
+        }
+        
+        .star.empty {
+            color: #444;
+        }
+        
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .tag {
+            background: #333;
+            color: #4CAF50;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 0.8em;
+            border: 1px solid #4CAF50;
+        }
+        
+        .news-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+        
+        .skeleton {
+            background: linear-gradient(90deg, #2c2c2c 25%, #3c3c3c 50%, #2c2c2c 75%);
+            background-size: 200px 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: 200px 0; }
+        }
+        
+        .skeleton-card {
+            height: 200px;
+            margin: 16px 0;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #aaa;
+        }
+        
+        .error {
+            background: #2d1b1b;
+            border: 1px solid #d32f2f;
+            color: #ffcdd2;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 16px 0;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+            
+            main {
+                padding: 10px;
+            }
+            
+            .news-card {
+                padding: 16px;
+                margin: 12px 0;
+            }
+            
+            .meta {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+        }
     </style>
 </head>
 <body>
     <header>
         <h1>emarknews.com</h1>
-        <button onclick="refresh()">새로고침</button>
+        <button class="refresh-btn" onclick="refresh()">🔄 새로고침</button>
     </header>
+    
     <main id="news-feed">
-        <div class="news-card skeleton" style="height: 100px;"></div>
+        <div class="loading">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <p>뉴스를 불러오는 중...</p>
+        </div>
     </main>
+    
     <script>
         const API_URL = '/api/news';
+        let isLoading = false;
+        
+        function renderStars(rating) {
+            const fullStars = Math.floor(rating);
+            const hasHalfStar = rating % 1 !== 0;
+            let starsHtml = '';
+            
+            for (let i = 0; i < fullStars; i++) {
+                starsHtml += '<span class="star">★</span>';
+            }
+            
+            if (hasHalfStar) {
+                starsHtml += '<span class="star">☆</span>';
+            }
+            
+            const emptyStars = 5 - Math.ceil(rating);
+            for (let i = 0; i < emptyStars; i++) {
+                starsHtml += '<span class="star empty">☆</span>';
+            }
+            
+            return starsHtml;
+        }
+        
+        function renderTags(tags) {
+            if (!tags || tags.length === 0) return '';
+            return tags.map(tag => `<span class="tag">${tag}</span>`).join('');
+        }
+        
         async function fetchNews() {
+            if (isLoading) return;
+            isLoading = true;
+            
             try {
-                const response = await fetch(API_URL, { headers: { 'If-None-Match': localStorage.getItem('etag') } });
+                const response = await fetch(API_URL, {
+                    headers: {
+                        'If-None-Match': localStorage.getItem('etag') || ''
+                    }
+                });
+                
                 const etag = response.headers.get('ETag');
-                if (etag) localStorage.setItem('etag', etag);
-                if (response.status === 304) return;
+                if (etag) {
+                    localStorage.setItem('etag', etag);
+                }
+                
+                if (response.status === 304) {
+                    console.log('뉴스가 최신 상태입니다.');
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
                 const feed = document.getElementById('news-feed');
+                
+                if (!data || data.length === 0) {
+                    feed.innerHTML = '<div class="error">뉴스를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.</div>';
+                    return;
+                }
+                
                 feed.innerHTML = '';
+                
                 data.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'news-card';
+                    
+                    const title = item.title_ko || item.title_en || item.title || '제목 없음';
+                    const summary = item.summary || item.description || '설명 없음';
+                    const source = item.source || '알 수 없음';
+                    const published = item.published || item.publishedAt;
+                    const rating = item.rating || 3.0;
+                    const tags = item.tags || [];
+                    
+                    let publishedText = '날짜 없음';
+                    if (published) {
+                        try {
+                            publishedText = new Date(published).toLocaleString('ko-KR');
+                        } catch (e) {
+                            publishedText = published;
+                        }
+                    }
+                    
                     div.innerHTML = `
-                        <h2>${item.title || '제목 없음'}</h2>
-                        <p>${item.description || '설명 없음'}</p>
+                        <h2>${title}</h2>
+                        <p>${summary}</p>
                         <div class="meta">
-                            출처: ${item.source || '알 수 없음'} | 
-                            발행: ${item.publishedAt ? new Date(item.publishedAt).toLocaleString('ko-KR') : '날짜 없음'}
-                            ${item.url ? ` | <a href="${item.url}" target="_blank">원문 보기</a>` : ''}
+                            <span>📰 ${source}</span>
+                            <span>📅 ${publishedText}</span>
+                            <div class="rating">
+                                <span>⭐</span>
+                                ${renderStars(rating)}
+                                <span>(${rating})</span>
+                            </div>
+                            ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener">🔗 원문 보기</a>` : ''}
                         </div>
-                        ${item.image ? `<img src="${item.image}" alt="뉴스 이미지" style="max-width: 100%; height: auto; margin-top: 10px;">` : ''}
+                        ${item.image ? `<img src="${item.image}" alt="뉴스 이미지" class="news-image" loading="lazy">` : ''}
+                        <div class="tags">${renderTags(tags)}</div>
                     `;
+                    
                     feed.appendChild(div);
                 });
-            } catch (error) { console.error('Error:', error); }
+                
+            } catch (error) {
+                console.error('뉴스 로딩 오류:', error);
+                const feed = document.getElementById('news-feed');
+                feed.innerHTML = `
+                    <div class="error">
+                        <h3>⚠️ 오류 발생</h3>
+                        <p>뉴스를 불러오는 중 오류가 발생했습니다: ${error.message}</p>
+                        <button class="refresh-btn" onclick="refresh()">다시 시도</button>
+                    </div>
+                `;
+            } finally {
+                isLoading = false;
+            }
         }
-        function refresh() { fetchNews(); }
-        window.onload = fetchNews;
+        
+        function refresh() {
+            localStorage.removeItem('etag');
+            fetchNews();
+        }
+        
+        // 페이지 로드 시 뉴스 가져오기
+        window.addEventListener('load', fetchNews);
+        
+        // 5분마다 자동 새로고침
+        setInterval(fetchNews, 5 * 60 * 1000);
+        
+        // 페이지 포커스 시 새로고침
+        window.addEventListener('focus', fetchNews);
     </script>
 </body>
 </html>
+
