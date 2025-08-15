@@ -4,7 +4,9 @@
   "description": "EmarkNews Premium Application",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo 'No build required for static frontend'",
+    "dev": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",

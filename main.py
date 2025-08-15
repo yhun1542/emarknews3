@@ -22,22 +22,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 정적 파일 서빙을 위한 설정
-app.mount("/static", StaticFiles(directory="."), name="static")
-
-@app.get("/")
-async def read_root():
-    return FileResponse("index.html")
+# 정적 파일 서빙을 위한 설정 - 수정됨
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 @app.get("/health")
 async def health_check():
-    return {"status": "OK"}
+    return {"status": "OK", "message": "emarknews.com is running"}
 
 def translate_text(text, target_lang='ko'):
     """OpenAI API를 사용한 번역"""
     try:
         openai_key = os.environ.get("OPENAI_API_KEY")
-        if not openai_key:
+        if not openai_key or openai_key.startswith("sk-placeholder"):
             return text
             
         headers = {
@@ -70,8 +66,8 @@ def generate_summary(text):
     """OpenAI API를 사용한 요약"""
     try:
         openai_key = os.environ.get("OPENAI_API_KEY")
-        if not openai_key:
-            return text[:100] + "..."
+        if not openai_key or openai_key.startswith("sk-placeholder"):
+            return text[:100] + "..." if len(text) > 100 else text
             
         headers = {
             "Authorization": f"Bearer {openai_key}",
@@ -97,7 +93,7 @@ def generate_summary(text):
     except Exception as e:
         print(f"요약 오류: {e}")
     
-    return text[:100] + "..."
+    return text[:100] + "..." if len(text) > 100 else text
 
 def calculate_rating(title, description):
     """뉴스 품질 평점 계산 (0.5 단위)"""
@@ -154,8 +150,10 @@ def generate_tags(title, description):
 
 @app.get("/api/news")
 async def get_news():
-    """향상된 뉴스 API 엔드포인트"""
+    """향상된 뉴스 API 엔드포인트 - Naver/NewsAPI/YouTube 통합"""
     try:
+        print("뉴스 API 호출 시작...")
+        
         # 환경변수에서 API 키 가져오기
         gnews_api_key = os.environ.get("GNEWS_API_KEY")
         news_api_key = os.environ.get("NEWS_API_KEY")
@@ -166,8 +164,9 @@ async def get_news():
         news_data = []
         
         # 1. GNews API 호출
-        if gnews_api_key and gnews_api_key != "placeholder":
+        if gnews_api_key and not gnews_api_key.startswith("your_"):
             try:
+                print("GNews API 호출 중...")
                 gnews_url = f"https://gnews.io/api/v4/top-headlines?token={gnews_api_key}&lang=ko&country=kr&max=5"
                 response = requests.get(gnews_url, timeout=10)
                 if response.status_code == 200:
@@ -180,22 +179,23 @@ async def get_news():
                             tags = generate_tags(title_ko, description_ko)
                             
                             news_data.append({
-                                'title_en': article.get('title', ''),
-                                'title_ko': title_ko,
-                                'summary': description_ko,
+                                'title': title_ko,
+                                'description': description_ko,
                                 'url': article.get('url', ''),
                                 'image': article.get('image', ''),
-                                'published': article.get('publishedAt', ''),
+                                'publishedAt': article.get('publishedAt', ''),
                                 'source': article.get('source', {}).get('name', 'GNews'),
                                 'rating': rating,
                                 'tags': tags
                             })
+                        print(f"GNews에서 {len(news_data)}개 뉴스 가져옴")
             except Exception as e:
                 print(f"GNews API 오류: {e}")
         
         # 2. NewsAPI 호출 (백업)
-        if len(news_data) < 5 and news_api_key and news_api_key != "placeholder":
+        if len(news_data) < 5 and news_api_key and not news_api_key.startswith("your_"):
             try:
+                print("NewsAPI 호출 중...")
                 newsapi_url = f"https://newsapi.org/v2/top-headlines?country=kr&apiKey={news_api_key}&pageSize=5"
                 response = requests.get(newsapi_url, timeout=10)
                 if response.status_code == 200:
@@ -208,22 +208,23 @@ async def get_news():
                             tags = generate_tags(title_ko, description_ko)
                             
                             news_data.append({
-                                'title_en': article.get('title', ''),
-                                'title_ko': title_ko,
-                                'summary': description_ko,
+                                'title': title_ko,
+                                'description': description_ko,
                                 'url': article.get('url', ''),
                                 'image': article.get('urlToImage', ''),
-                                'published': article.get('publishedAt', ''),
+                                'publishedAt': article.get('publishedAt', ''),
                                 'source': article.get('source', {}).get('name', 'NewsAPI'),
                                 'rating': rating,
                                 'tags': tags
                             })
+                        print(f"NewsAPI에서 추가로 {len(news_data)}개 뉴스 가져옴")
             except Exception as e:
                 print(f"NewsAPI 오류: {e}")
         
         # 3. Naver 뉴스 API 호출
-        if len(news_data) < 5 and naver_client_id and naver_client_secret:
+        if len(news_data) < 5 and naver_client_id and naver_client_secret and not naver_client_id.startswith("your_"):
             try:
+                print("Naver API 호출 중...")
                 headers = {
                     'X-Naver-Client-Id': naver_client_id,
                     'X-Naver-Client-Secret': naver_client_secret
@@ -240,51 +241,79 @@ async def get_news():
                             tags = generate_tags(title, description)
                             
                             news_data.append({
-                                'title_en': title,
-                                'title_ko': title,
-                                'summary': description,
+                                'title': title,
+                                'description': description,
                                 'url': item.get('link', ''),
                                 'image': '',
-                                'published': item.get('pubDate', ''),
+                                'publishedAt': item.get('pubDate', ''),
                                 'source': 'Naver News',
                                 'rating': rating,
                                 'tags': tags
                             })
+                        print(f"Naver에서 추가로 {len(news_data)}개 뉴스 가져옴")
             except Exception as e:
                 print(f"Naver API 오류: {e}")
         
-        # 4. 샘플 데이터 (모든 API 실패 시)
+        # 4. YouTube 뉴스 검색 (선택사항)
+        if len(news_data) < 8 and youtube_api_key and not youtube_api_key.startswith("your_"):
+            try:
+                print("YouTube API 호출 중...")
+                youtube_url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&q=뉴스&type=video&order=date&maxResults=3&key={youtube_api_key}"
+                response = requests.get(youtube_url, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    if 'items' in data:
+                        for item in data['items']:
+                            snippet = item.get('snippet', {})
+                            title = snippet.get('title', '')
+                            description = snippet.get('description', '')
+                            rating = calculate_rating(title, description)
+                            tags = generate_tags(title, description)
+                            
+                            news_data.append({
+                                'title': title,
+                                'description': description,
+                                'url': f"https://www.youtube.com/watch?v={item['id']['videoId']}",
+                                'image': snippet.get('thumbnails', {}).get('medium', {}).get('url', ''),
+                                'publishedAt': snippet.get('publishedAt', ''),
+                                'source': 'YouTube News',
+                                'rating': rating,
+                                'tags': tags
+                            })
+                        print(f"YouTube에서 추가로 {len(news_data)}개 뉴스 가져옴")
+            except Exception as e:
+                print(f"YouTube API 오류: {e}")
+        
+        # 5. 샘플 데이터 (모든 API 실패 시)
         if not news_data:
+            print("모든 API 실패, 샘플 데이터 사용")
             sample_news = [
                 {
-                    'title_en': 'Breaking: Major Economic Development',
-                    'title_ko': '속보: 주요 경제 발전',
-                    'summary': '경제 분야에서 중요한 발전이 있었습니다. 이는 시장에 큰 영향을 미칠 것으로 예상됩니다.',
+                    'title': '속보: 주요 경제 발전',
+                    'description': '경제 분야에서 중요한 발전이 있었습니다. 이는 시장에 큰 영향을 미칠 것으로 예상됩니다.',
                     'url': 'https://example.com/news1',
                     'image': '',
-                    'published': datetime.now().isoformat(),
+                    'publishedAt': datetime.now().isoformat(),
                     'source': 'Sample News',
                     'rating': 4.5,
                     'tags': ['경제', '속보']
                 },
                 {
-                    'title_en': 'Technology Innovation Breakthrough',
-                    'title_ko': '기술 혁신의 돌파구',
-                    'summary': '최신 기술 혁신이 발표되었습니다. 이 기술은 미래를 바꿀 잠재력을 가지고 있습니다.',
+                    'title': '기술 혁신의 돌파구',
+                    'description': '최신 기술 혁신이 발표되었습니다. 이 기술은 미래를 바꿀 잠재력을 가지고 있습니다.',
                     'url': 'https://example.com/news2',
                     'image': '',
-                    'published': datetime.now().isoformat(),
+                    'publishedAt': datetime.now().isoformat(),
                     'source': 'Sample News',
                     'rating': 4.0,
                     'tags': ['기술', '혁신']
                 },
                 {
-                    'title_en': 'Global Political Update',
-                    'title_ko': '글로벌 정치 업데이트',
-                    'summary': '국제 정치 상황에 새로운 변화가 있었습니다. 각국의 반응이 주목됩니다.',
+                    'title': '글로벌 정치 업데이트',
+                    'description': '국제 정치 상황에 새로운 변화가 있었습니다. 각국의 반응이 주목됩니다.',
                     'url': 'https://example.com/news3',
                     'image': '',
-                    'published': datetime.now().isoformat(),
+                    'publishedAt': datetime.now().isoformat(),
                     'source': 'Sample News',
                     'rating': 3.5,
                     'tags': ['정치', '국제']
@@ -295,21 +324,16 @@ async def get_news():
         # sum_limit=10 필터 적용
         news_data = news_data[:10]
         
+        print(f"총 {len(news_data)}개 뉴스 반환")
         return JSONResponse(content=news_data)
         
     except Exception as e:
-        print(f"뉴스 API 오류: {e}")
+        print(f"뉴스 API 전체 오류: {e}")
         return JSONResponse(content=[], status_code=500)
-
-def start_node_server():
-    """Node.js 서버를 별도 스레드에서 실행 (선택사항)"""
-    try:
-        subprocess.run(["node", "server.js"])
-    except Exception as e:
-        print(f"Node.js 서버 시작 실패: {e}")
 
 if __name__ == "__main__":
     # Railway에서 제공하는 PORT 환경변수 사용
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8080))
+    print(f"서버 시작: 포트 {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
 

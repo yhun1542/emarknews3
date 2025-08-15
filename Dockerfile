@@ -1,24 +1,29 @@
 FROM python:3.12
 
-# Install Node.js
+# Install Node.js (for future use)
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs
 
 WORKDIR /app
 
 # Copy package files
-COPY requirements.txt package.json ./
+COPY requirements.txt ./
+COPY package.json ./
 
 # Install Python dependencies
 RUN pip install -r requirements.txt
 
-# Install Node.js dependencies
+# Install Node.js dependencies (optional)
 RUN npm install
 
 # Copy application files
-COPY . .
+COPY main.py ./
+COPY server.js ./
+COPY frontend ./frontend
 
-EXPOSE 8000
+# Expose port
+EXPOSE 8080
 
-CMD ["python", "main.py"]
+# Use uvicorn for production
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 
