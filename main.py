@@ -22,9 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 정적 파일 서빙을 위한 설정 - 수정됨
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
-
 @app.get("/health")
 async def health_check():
     return {"status": "OK", "message": "emarknews.com is running"}
@@ -317,6 +314,26 @@ async def get_news():
                     'source': 'Sample News',
                     'rating': 3.5,
                     'tags': ['정치', '국제']
+                },
+                {
+                    'title': '문화 예술 소식',
+                    'description': '새로운 문화 예술 프로젝트가 시작되었습니다. 많은 관심이 집중되고 있습니다.',
+                    'url': 'https://example.com/news4',
+                    'image': '',
+                    'publishedAt': datetime.now().isoformat(),
+                    'source': 'Sample News',
+                    'rating': 4.0,
+                    'tags': ['문화', '예술']
+                },
+                {
+                    'title': '스포츠 업계 동향',
+                    'description': '스포츠 업계에 새로운 변화가 있었습니다. 팬들의 반응이 뜨겁습니다.',
+                    'url': 'https://example.com/news5',
+                    'image': '',
+                    'publishedAt': datetime.now().isoformat(),
+                    'source': 'Sample News',
+                    'rating': 3.5,
+                    'tags': ['스포츠']
                 }
             ]
             news_data = sample_news
@@ -330,6 +347,9 @@ async def get_news():
     except Exception as e:
         print(f"뉴스 API 전체 오류: {e}")
         return JSONResponse(content=[], status_code=500)
+
+# 정적 파일 서빙을 마지막에 배치 - 이것이 핵심 수정사항!
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 if __name__ == "__main__":
     # Railway에서 제공하는 PORT 환경변수 사용
