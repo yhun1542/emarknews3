@@ -1,11 +1,24 @@
 FROM python:3.12
+
+# Install Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs
+
 WORKDIR /app
-COPY . .
+
+# Copy package files
+COPY requirements.txt package.json ./
+
+# Install Python dependencies
 RUN pip install -r requirements.txt
-RUN npm install express axios @google-cloud/translate
-COPY server.js .
-COPY index.html .
-COPY main.py .
-COPY Procfile .
+
+# Install Node.js dependencies
+RUN npm install
+
+# Copy application files
+COPY . .
+
 EXPOSE 8000
+
 CMD ["python", "main.py"]
+
